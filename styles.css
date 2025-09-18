@@ -39,7 +39,7 @@
 
 body { 
   margin: 0;
-  padding: 20px;
+  padding: 12px;
   max-width: 1400px;
   margin: 0 auto;
   background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 50%, var(--bg-tertiary) 100%);
@@ -50,17 +50,17 @@ body {
 
 .container {
   background: var(--surface);
-  border-radius: 20px;
-  padding: 32px;
+  border-radius: 16px;
+  padding: 20px;
   box-shadow: var(--shadow-lg);
   border: 1px solid var(--border);
   backdrop-filter: blur(10px);
 }
 
 h1 { 
-  font-size: 2.5rem;
+  font-size: 2rem;
   font-weight: 800;
-  margin: 0 0 32px;
+  margin: 0 0 24px;
   color: var(--text-primary);
   text-align: center;
   background: linear-gradient(135deg, var(--primary), var(--accent));
@@ -114,9 +114,109 @@ h1 {
   justify-items: center;
 }
 
-@media (max-width: 600px) {
+@media (max-width: 768px) {
   .settings-grid {
     grid-template-columns: 1fr;
+    gap: 20px;
+    justify-items: stretch;
+  }
+  
+  .form-row {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  
+  label {
+    min-width: auto;
+  }
+  
+  .container {
+    padding: 16px;
+    border-radius: 12px;
+  }
+  
+  h1 {
+    font-size: 1.8rem;
+    margin: 0 0 20px;
+  }
+  
+  input[type="date"], input[type="time"], select {
+    min-width: auto;
+    width: 100%;
+    margin-bottom: 8px;
+  }
+  
+  input[type="time"] {
+    min-width: 120px;
+    width: auto;
+  }
+  
+  button {
+    padding: 12px 16px;
+    font-size: 14px;
+    min-width: 80px;
+  }
+  
+  .chips {
+    justify-content: center;
+  }
+  
+  .courses {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 10px;
+  }
+  
+  .results-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  body {
+    padding: 8px;
+  }
+  
+  .container {
+    padding: 12px;
+  }
+  
+  h1 {
+    font-size: 1.5rem;
+  }
+  
+  .section {
+    padding: 16px;
+  }
+  
+  .form-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  
+  .form-row label {
+    text-align: center;
+    margin-bottom: 4px;
+  }
+  
+  input[type="time"] {
+    min-width: auto;
+    width: 100%;
+  }
+  
+  .courses {
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  }
+  
+  button {
+    width: 100%;
+    margin-bottom: 8px;
+  }
+  
+  .course {
+    padding: 12px;
+    font-size: 0.9rem;
   }
 }
 
