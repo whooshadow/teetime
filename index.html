@@ -2,328 +2,397 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Tee Time Finder (Frontend Only)</title>
+  <title>🏌️ Tee Time Finder</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- External CSS -->
+  <link rel="stylesheet" href="styles.css" />
   <!-- Luxon for reliable Europe/Stockholm timezone handling -->
   <script src="https://cdn.jsdelivr.net/npm/luxon@3/build/global/luxon.min.js" defer></script>
   <!-- Simple inline favicon to avoid 404s -->
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%230078d4'/%3E%3Cpath d='M20 40c6-8 18-8 24 0' stroke='%23fff' stroke-width='4' fill='none' stroke-linecap='round'/%3E%3Ccircle cx='24' cy='26' r='3' fill='%23fff'/%3E%3Ccircle cx='40' cy='26' r='3' fill='%23fff'/%3E%3C/svg%3E" />
-  <style>
-    :root { 
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-      --primary: #2563eb;
-      --primary-hover: #1d4ed8;
-      --primary-light: #dbeafe;
-      --secondary: #64748b;
-      --success: #16a34a;
-      --border: #e2e8f0;
-      --border-hover: #cbd5e1;
-      --surface: #ffffff;
-      --surface-alt: #f8fafc;
-      --text: #0f172a;
-      --text-muted: #64748b;
-      --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
-      --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-    }
-    
-    body { 
-      margin: 0;
-      padding: 24px;
-      max-width: 1200px;
-      margin: 0 auto;
-      background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
-      min-height: 100vh;
-      color: var(--text);
-      line-height: 1.6;
-    }
-    
-    .container {
-      background: var(--surface);
-      border-radius: 16px;
-      padding: 32px;
-      box-shadow: var(--shadow-lg);
-      border: 1px solid var(--border);
-    }
-    
-    h1 { 
-      font-size: 2rem;
-      font-weight: 700;
-      margin: 0 0 24px;
-      color: var(--primary);
-      text-align: center;
-    }
-    
-    .section {
-      margin-bottom: 24px;
-      padding: 20px;
-      background: var(--surface-alt);
-      border-radius: 12px;
-      border: 1px solid var(--border);
-    }
-    
-    .section h3 {
-      margin: 0 0 16px;
-      font-size: 1.1rem;
-      font-weight: 600;
-      color: var(--text);
-    }
-    
-    .row { 
-      display: flex;
-      gap: 12px;
-      flex-wrap: wrap;
-      align-items: center;
-      margin-bottom: 12px;
-    }
-    
-    label { 
-      font-weight: 600;
-      margin-right: 8px;
-      color: var(--text);
-      min-width: 80px;
-    }
-    
-    input[type="date"], input[type="time"], select { 
-      padding: 10px 12px;
-      font-size: 14px;
-      border: 2px solid var(--border);
-      border-radius: 8px;
-      background: var(--surface);
-      color: var(--text);
-      transition: border-color 0.2s, box-shadow 0.2s;
-    }
-    
-    input[type="date"]:focus, input[type="time"]:focus, select:focus {
-      outline: none;
-      border-color: var(--primary);
-      box-shadow: 0 0 0 3px var(--primary-light);
-    }
-    
-    button { 
-      padding: 10px 16px;
-      border: 2px solid var(--primary);
-      color: white;
-      background: var(--primary);
-      border-radius: 8px;
-      cursor: pointer;
-      font-weight: 600;
-      transition: all 0.2s;
-      font-size: 14px;
-    }
-    
-    button.secondary { 
-      background: transparent;
-      color: var(--primary);
-    }
-    
-    button:hover { 
-      background: var(--primary-hover);
-      border-color: var(--primary-hover);
-      transform: translateY(-1px);
-      box-shadow: var(--shadow);
-    }
-    
-    button.secondary:hover {
-      background: var(--primary-light);
-      color: var(--primary);
-    }
-    
-    .chips { 
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-      margin-top: 12px;
-    }
-    
-    .chip { 
-      background: var(--primary-light);
-      color: var(--primary);
-      border-radius: 20px;
-      padding: 6px 12px;
-      cursor: pointer;
-      font-size: 13px;
-      font-weight: 500;
-      transition: all 0.2s;
-      border: 1px solid var(--primary);
-    }
-    
-    .chip:hover {
-      background: var(--primary);
-      color: white;
-      transform: translateY(-1px);
-    }
-    
-    .courses { 
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-      gap: 12px;
-      margin-top: 12px;
-    }
-    
-    .course { 
-      padding: 12px 16px;
-      border: 2px solid var(--border);
-      border-radius: 10px;
-      cursor: pointer;
-      user-select: none;
-      text-transform: capitalize;
-      transition: all 0.2s;
-      background: var(--surface);
-      color: var(--text);
-      font-weight: 500;
-      text-align: center;
-    }
-    
-    .course:hover { 
-      border-color: var(--primary);
-      transform: translateY(-2px);
-      box-shadow: var(--shadow);
-    }
-    
-    .course.selected { 
-      background: var(--primary);
-      color: white;
-      border-color: var(--primary);
-      box-shadow: var(--shadow);
-    }
-    
-    #run { 
-      margin-top: 24px;
-      padding: 12px 24px;
-      font-size: 16px;
-      background: var(--success);
-      border-color: var(--success);
-      width: 100%;
-    }
-    
-    #run:hover {
-      background: #15803d;
-      border-color: #15803d;
-    }
-    
-    .results-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-      gap: 20px;
-      margin-top: 20px;
-    }
-    
-    .course-result {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 20px;
-      box-shadow: var(--shadow);
-    }
-    
-    .course-result h4 {
-      margin: 0 0 12px;
-      font-size: 1.1rem;
-      color: var(--primary);
-      font-weight: 600;
-      border-bottom: 2px solid var(--primary-light);
-      padding-bottom: 8px;
-    }
-    
-    .time-slot {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 8px 12px;
-      margin: 4px 0;
-      background: var(--surface-alt);
-      border-radius: 6px;
-      border-left: 3px solid var(--success);
-    }
-    
-    .time-slot .time {
-      font-weight: 600;
-      color: var(--text);
-    }
-    
-    .time-slot .slots {
-      color: var(--text-muted);
-      font-size: 0.9rem;
-    }
-    
-    .no-results {
-      color: var(--text-muted);
-      font-style: italic;
-      text-align: center;
-      padding: 20px;
-    }
-    
-    #output-container {
-      margin-top: 24px;
-    }
-    
-    .muted { 
-      color: var(--text-muted);
-    }
-    
-    .loading {
-      text-align: center;
-      color: var(--text-muted);
-      font-style: italic;
-      padding: 40px;
-    }
-  </style>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%233b82f6'/%3E%3Cpath d='M20 40c6-8 18-8 24 0' stroke='%23fff' stroke-width='4' fill='none' stroke-linecap='round'/%3E%3Ccircle cx='24' cy='26' r='3' fill='%23fff'/%3E%3Ccircle cx='40' cy='26' r='3' fill='%23fff'/%3E%3C/svg%3E" />
 </head>
 <body>
   <div class="container">
     <h1>🏌️ Tee Time Finder</h1>
 
-    <div class="section">
-      <h3>Settings</h3>
-      <div class="row">
-        <label for="players">Players</label>
-        <select id="players">
-          <option value="1">1</option>
-          <option value="2">2</option>
-          <option value="3">3</option>
-          <option value="4" selected>4</option>
-        </select>
-      </div>
+    <div class="main-content">
+      <!-- Single Settings Card -->
+      <div class="section">
+        <h3>⚙️ Settings</h3>
+        <div class="settings-grid">
+          <div class="form-group">
+            <div class="form-row">
+              <label for="players">Players</label>
+              <select id="players">
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4" selected>4</option>
+              </select>
+            </div>
+          </div>
 
-      <div class="row">
-        <label>Time filter</label>
-        <span>After</span>
-        <input id="after" type="time" />
-        <span>Before</span>
-        <input id="before" type="time" />
-        <span class="muted">(optional)</span>
+          <div class="form-group">
+            <div class="form-row">
+              <label>After</label>
+              <input id="after" type="time" />
+              <label>Before</label>
+              <input id="before" type="time" />
+            </div>
+            <div class="muted" style="font-size: 0.8rem; margin-top: 4px;">Time filter (optional)</div>
+          </div>
+          
+          <div class="form-group">
+            <div class="form-row">
+              <label for="date">Date</label>
+              <input id="date" type="date" />
+              <button id="add-date" type="button" class="secondary">Add</button>
+              <button id="clear-dates" type="button" class="secondary">Clear</button>
+            </div>
+            <div class="muted" style="font-size: 0.8rem;">Selected dates (click to remove):</div>
+            <div id="dates-list" class="chips"></div>
+          </div>
+        </div>
       </div>
     </div>
 
-    <div class="section">
-      <h3>Dates</h3>
-      <div class="row">
-        <label for="date">Date</label>
-        <input id="date" type="date" />
-        <button id="add-date" type="button" class="secondary">Add date</button>
-        <button id="clear-dates" type="button" class="secondary">Clear dates</button>
-      </div>
-      <div>
-        <div class="muted">Selected dates (click to remove):</div>
-        <div id="dates-list" class="chips"></div>
-      </div>
-    </div>
-
-    <div class="section">
-      <h3>Golf Courses</h3>
-      <div class="row">
+    <div class="section courses-section">
+      <h3>🏌️ Golf Courses</h3>
+      <div class="form-row" style="margin-bottom: 16px;">
         <button id="select-all" type="button" class="secondary">Select all</button>
         <button id="clear-all" type="button" class="secondary">Clear all</button>
       </div>
       <div id="courses" class="courses"></div>
     </div>
 
-    <div class="row">
-      <button id="run" type="button">🔍 Find Tee Times</button>
-    </div>
+    <button id="run" type="button">🔍 Find Tee Times</button>
 
     <div id="output-container"></div>
   </div>
+
+  <script>
+    // Defer all JS until DOM is parsed and Luxon (defer) has executed
+    window.addEventListener('DOMContentLoaded', () => {
+    // --- Constants and data (from your teetime.py) ---
+    const COURSES = {
+      "brållsta 18 hål": "292e2543-f661-403f-b1d6-a5086d251061",
+      "bodaholm": "ac165789-77f6-43c5-ae15-907ae3c4b814",
+      "gripsholm": "9cec9190-3cf1-4177-90a6-c8b1c874a552",
+      "international": "2ee26a65-028d-46e0-809d-635bf3c06a5a",
+      "kings course": "c006a958-4c27-4a58-9442-627a7aebc843",
+      "queens": "583bf680-75c3-4281-b78d-be5ebbcdac1f",
+      "kyssinge": "f10b066a-205b-4690-af58-83c43cff55c1",
+      "lindö dal": "e02768fc-caff-49b6-a86d-237179cf5ca8",
+      "lindö park": "15a56a35-ec3f-4067-935f-45b38530c52e",
+      "lindö äng": "6ec41746-b529-46bc-ac81-514095105d54",
+      "riksten": "19ceb886-66ed-4489-9ddd-6e86642a22be",
+      "stannum": "c4d2c938-43d7-4b07-9ddc-c679c769d28c",
+      "waxholm": "410fdd67-a108-4b3f-8058-1ff66fc061c2",
+    };
+    const API_ORIGIN = "https://middleware.sweetspot.io";
+    const { DateTime } = (window.luxon || {});
+    
+    if (!DateTime) {
+      const container = document.getElementById('output-container');
+      if (container) {
+        container.innerHTML = '<div class="section"><div class="no-results">❌ Error: Failed to load Luxon. Check your internet connection or CDN access.</div></div>';
+      }
+      console.error('Luxon failed to load.');
+      return; // stop init so we don\'t crash
+    }
+
+    // --- State ---
+    const selectedCourses = new Set(Object.keys(COURSES)); // all selected by default
+    const selectedDates = new Set(); // yyyy-mm-dd
+
+    // --- Helpers ---
+    function todayISO() {
+      const d = new Date();
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, "0");
+      const dd = String(d.getDate()).padStart(2, "0");
+      return `${yyyy}-${mm}-${dd}`;
+    }
+
+    function renderDates() {
+      const list = document.getElementById("dates-list");
+      list.innerHTML = "";
+      Array.from(selectedDates).sort().forEach(ds => {
+        const chip = document.createElement("div");
+        chip.textContent = ds;
+        chip.className = "chip";
+        chip.title = "Remove";
+        chip.onclick = () => { selectedDates.delete(ds); renderDates(); };
+        list.appendChild(chip);
+      });
+    }
+
+    function renderCourses() {
+      const wrap = document.getElementById("courses");
+      wrap.innerHTML = "";
+      Object.keys(COURSES).forEach(name => {
+        const btn = document.createElement("div");
+        btn.className = "course" + (selectedCourses.has(name) ? " selected" : "");
+        btn.textContent = name;
+        btn.onclick = () => {
+          if (selectedCourses.has(name)) selectedCourses.delete(name);
+          else selectedCourses.add(name);
+          btn.classList.toggle("selected");
+        };
+        wrap.appendChild(btn);
+      });
+    }
+
+    function tmin(hhmm) {
+      if (!hhmm) return null;
+      const [h, m] = hhmm.split(":");
+      const ih = Number(h), im = Number(m);
+      if (Number.isNaN(ih) || Number.isNaN(im)) return null;
+      return ih * 60 + im;
+    }
+
+    function hhmmInStockholm(startIso) {
+      // Convert ISO (UTC or with offset) to Europe/Stockholm HH:mm
+      return DateTime.fromISO(startIso).setZone("Europe/Stockholm").toFormat("HH:mm");
+    }
+
+    function apiWindowForDate(dateStr) {
+      // Build full Stockholm local day window -> UTC ISO strings
+      const start = DateTime.fromISO(dateStr, { zone: "Europe/Stockholm" }).startOf("day");
+      const end = start.endOf("day");
+      const afterISO = start.toUTC().toISO({ suppressMilliseconds: false });   // with .SSSZ
+      const beforeISO = end.toUTC().toISO({ suppressMilliseconds: false });    // with .SSSZ
+      return { afterISO, beforeISO };
+    }
+
+    function catStr(v) {
+      return (typeof v === "string" ? v : "").trim().toLowerCase();
+    }
+
+    function shouldKeepItem(it) {
+      const cat = it.category || {};
+      if (typeof cat === "object") {
+        if (catStr(cat.name) === "banunderhåll" || catStr(cat.custom_name) === "banunderhåll" || catStr(it.name) === "banunderhåll") return false;
+        if (catStr(cat.display) === "full") return false;
+        if (["fullbokad", "fullbokat", "fullbokade"].includes(catStr(cat.custom_name))) return false;
+        if (cat.tee_time_bookable === false) return false;
+      } else {
+        if (catStr(it.name || it.category) === "banunderhåll") return false;
+      }
+      return true;
+    }
+
+    async function fetchCourseDate(courseName, courseUuid, dateStr, players, afterMin, beforeMin) {
+      const { afterISO, beforeISO } = apiWindowForDate(dateStr);
+      const params = new URLSearchParams({
+        "course.uuid": courseUuid,
+        "from[after]": afterISO,
+        "from[before]": beforeISO,
+        "limit": "9999",
+        "order[from]": "asc",
+        "page": "1",
+      });
+      const url = `${API_ORIGIN}/api/tee-times?${params.toString()}`;
+      const r = await fetch(url, { method: "GET" });
+      if (!r.ok) throw new Error(`HTTP ${r.status} ${r.statusText}`);
+      const data = await r.json();
+      const items = Array.isArray(data) ? data : (data && data.data) || [];
+
+      const out = [];
+      for (const it of items) {
+        if (!shouldKeepItem(it)) continue;
+        const startIso = it.from || it.start;
+        if (!startIso) continue;
+        const hhmm = hhmmInStockholm(startIso);
+        const t = tmin(hhmm);
+        if (t == null) continue;
+        if (afterMin != null && t < afterMin) continue;
+        if (beforeMin != null && t > beforeMin) continue;
+
+        let avail = it.available_slots;
+        if (typeof avail !== "number") {
+          const n = Number(avail);
+          avail = Number.isFinite(n) ? n : 0;
+        }
+        if (avail >= players) out.push({ hhmm, avail });
+      }
+      out.sort((a, b) => (tmin(a.hhmm) ?? 1e9) - (tmin(b.hhmm) ?? 1e9));
+      return { courseName, dateStr, out };
+    }
+
+    function setOutput(content, isLoading = false) {
+      const container = document.getElementById("output-container");
+      
+      if (isLoading) {
+        container.innerHTML = '<div class="loading">Fetching tee times...</div>';
+        return;
+      }
+      
+      if (typeof content === 'string') {
+        // Handle error messages
+        container.innerHTML = `<div class="section"><div class="no-results">${content}</div></div>`;
+        return;
+      }
+      
+      // Handle structured results
+      container.innerHTML = '';
+      
+      if (!content || content.length === 0) {
+        container.innerHTML = '<div class="section"><div class="no-results">No results found. Try adjusting your criteria.</div></div>';
+        return;
+      }
+      
+      // Group results by date first
+      const resultsByDate = {};
+      content.forEach(result => {
+        if (!resultsByDate[result.dateStr]) {
+          resultsByDate[result.dateStr] = [];
+        }
+        resultsByDate[result.dateStr].push(result);
+      });
+      
+      // Create sections for each date
+      Object.keys(resultsByDate).sort().forEach(dateStr => {
+        const dateSection = document.createElement('div');
+        dateSection.className = 'section';
+        
+        const dateHeader = document.createElement('h3');
+        dateHeader.textContent = `📅 ${dateStr}`;
+        dateSection.appendChild(dateHeader);
+        
+        const resultsGrid = document.createElement('div');
+        resultsGrid.className = 'results-grid';
+        
+        resultsByDate[dateStr].forEach(result => {
+          const courseDiv = document.createElement('div');
+          courseDiv.className = 'course-result';
+          
+          const courseTitle = document.createElement('h4');
+          courseTitle.textContent = result.courseName.replace(/\b\w/g, c => c.toUpperCase());
+          courseDiv.appendChild(courseTitle);
+          
+          if (!result.out || result.out.length === 0) {
+            const noResults = document.createElement('div');
+            noResults.className = 'no-results';
+            noResults.textContent = 'No available tee times';
+            courseDiv.appendChild(noResults);
+          } else {
+            result.out.forEach(({ hhmm, avail }) => {
+              const timeSlot = document.createElement('div');
+              timeSlot.className = 'time-slot';
+              
+              const timeSpan = document.createElement('span');
+              timeSpan.className = 'time';
+              timeSpan.textContent = hhmm;
+              
+              const slotsSpan = document.createElement('span');
+              slotsSpan.className = 'slots';
+              slotsSpan.textContent = `${avail} slots`;
+              
+              timeSlot.appendChild(timeSpan);
+              timeSlot.appendChild(slotsSpan);
+              courseDiv.appendChild(timeSlot);
+            });
+          }
+          
+          resultsGrid.appendChild(courseDiv);
+        });
+        
+        dateSection.appendChild(resultsGrid);
+        container.appendChild(dateSection);
+      });
+    }
+
+    // --- Init UI ---
+    const dateInput = document.getElementById("date");
+    const addDateBtn = document.getElementById("add-date");
+    const clearDatesBtn = document.getElementById("clear-dates");
+    const playersSel = document.getElementById("players");
+    const afterInput = document.getElementById("after");
+    const beforeInput = document.getElementById("before");
+    const runBtn = document.getElementById("run");
+
+    // Default date = today, and add to selectedDates
+    dateInput.value = todayISO();
+    selectedDates.add(dateInput.value);
+    renderDates();
+    renderCourses();
+
+    addDateBtn.onclick = () => {
+      if (dateInput.value) {
+        selectedDates.add(dateInput.value);
+        renderDates();
+      }
+    };
+    clearDatesBtn.onclick = () => {
+      selectedDates.clear();
+      renderDates();
+    };
+
+    document.getElementById("select-all").onclick = () => {
+      Object.keys(COURSES).forEach(k => selectedCourses.add(k));
+      renderCourses();
+    };
+    document.getElementById("clear-all").onclick = () => {
+      selectedCourses.clear();
+      renderCourses();
+    };
+
+    runBtn.onclick = async () => {
+      try {
+        const players = Number(playersSel.value) || 1;
+        const afterMin = tmin(afterInput.value || null);
+        const beforeMin = tmin(beforeInput.value || null);
+
+        const dates = Array.from(selectedDates);
+        if (dates.length === 0 && dateInput.value) dates.push(dateInput.value);
+        if (dates.length === 0) {
+          setOutput("❌ Please select at least one date.");
+          return;
+        }
+
+        const courses = Array.from(selectedCourses).map(name => [name, COURSES[name]]);
+        if (courses.length === 0) {
+          setOutput("❌ Please select at least one course.");
+          return;
+        }
+
+        setOutput(null, true); // Show loading
+
+        const tasks = [];
+        for (const [name, uuid] of courses) {
+          for (const d of dates) {
+            tasks.push(fetchCourseDate(name, uuid, d, players, afterMin, beforeMin));
+          }
+        }
+        const results = await Promise.allSettled(tasks);
+
+        // Process results for grid display
+        const successfulResults = [];
+        const errors = [];
+        
+        for (const res of results) {
+          if (res.status === "fulfilled") {
+            successfulResults.push(res.value);
+          } else {
+            errors.push(res.reason?.message || res.reason);
+          }
+        }
+
+        if (errors.length > 0) {
+          console.warn("Some requests failed:", errors);
+        }
+
+        setOutput(successfulResults);
+      } catch (e) {
+        setOutput(`❌ Error: ${e.message || e}`);
+      }
+    };
+    });
+  </script>
+
+</body>
+</html>
 
   <script>
     // Defer all JS until DOM is parsed and Luxon (defer) has executed
@@ -644,10 +713,5 @@
     };
     });
   </script>
-
-  <p class="muted">
-    Note: This page calls the Sweetspot API directly from your browser. If the API blocks CORS for your origin,
-    you will see errors. In that case, host this file and add a tiny proxy (e.g., Cloudflare Worker) or use a local static server.
-  </p>
 </body>
 </html>
