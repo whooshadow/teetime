@@ -2,24 +2,6 @@
 :root { 
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   
-  /* Dark Theme Colors */
-  --primary: #3b82f6;
-  --primary-hover: #2563eb;
-  --primary-light: rgba(59, 130, 246, 0.1);
-  --primary-glow: rgba(59, 130, 246, 0.2);
-  --secondary: #64748b;
-  --accent: #10b981;
-  --accent-hover: #059669;
-  
-  /* Dark Background Colors */
-  --bg-primary: #0f172a;
-  --bg-secondary: #1e293b;
-  --bg-terti.no-results {
-  color: var(--text-muted);
-  font-style: italic;
-}
-
-:root {
   /* Primary Colors */
   --primary: #3b82f6;
   --primary-hover: #2563eb;
@@ -28,7 +10,7 @@
   --accent: #06b6d4;
   --accent-hover: #0891b2;
   
-  /* Background Colors */
+  /* Dark Background Colors */
   --bg-primary: #0f172a;
   --bg-secondary: #1e293b;
   --surface: #1e293b;
@@ -58,7 +40,7 @@ body {
   padding: clamp(8px, 2vw, 20px);
   max-width: 1400px;
   margin: 0 auto;
-  background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 50%, var(--bg-tertiary) 100%);
+  background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
   min-height: 100vh;
   color: var(--text-primary);
   line-height: 1.6;
@@ -593,8 +575,26 @@ button.secondary:hover {
   background: var(--border-hover);
 }
 
+.muted {
+  color: var(--text-muted);
+  font-size: clamp(0.75rem, 2vw, 0.85rem);
+}
+
+.time-filter-note {
+  font-size: clamp(0.7rem, 1.8vw, 0.8rem);
+  margin-top: clamp(3px, 1vw, 4px);
+}
+
+.selected-dates-label {
+  font-size: clamp(0.7rem, 1.8vw, 0.8rem);
+}
+
+.course-controls {
+  margin-bottom: clamp(12px, 3vw, 16px);
+}
+
 /* Focus indicators for accessibility */
 *:focus-visible {
   outline: 2px solid var(--primary);
   outline-offset: 2px;
-}}
+}

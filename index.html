@@ -5,7 +5,7 @@
   <title>🏌️ Tee Time Finder</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <!-- External CSS -->
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="styles.css?v=2" />
   <!-- Luxon for reliable Europe/Stockholm timezone handling -->
   <script src="https://cdn.jsdelivr.net/npm/luxon@3/build/global/luxon.min.js" defer></script>
   <!-- Simple inline favicon to avoid 404s -->
@@ -39,7 +39,7 @@
               <label>Before</label>
               <input id="before" type="time" />
             </div>
-            <div class="muted" style="font-size: 0.8rem; margin-top: 4px;">Time filter (optional)</div>
+            <div class="muted time-filter-note">Time filter (optional)</div>
           </div>
           
           <div class="form-group">
@@ -49,7 +49,7 @@
               <button id="add-date" type="button" class="secondary">Add</button>
               <button id="clear-dates" type="button" class="secondary">Clear</button>
             </div>
-            <div class="muted" style="font-size: 0.8rem;">Selected dates (click to remove):</div>
+            <div class="muted selected-dates-label">Selected dates (click to remove):</div>
             <div id="dates-list" class="chips"></div>
           </div>
         </div>
@@ -58,7 +58,7 @@
 
     <div class="section courses-section">
       <h3>🏌️ Golf Courses</h3>
-      <div class="form-row" style="margin-bottom: 16px;">
+      <div class="form-row course-controls">
         <button id="select-all" type="button" class="secondary">Select all</button>
         <button id="clear-all" type="button" class="secondary">Clear all</button>
       </div>
