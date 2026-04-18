@@ -5,7 +5,7 @@
   <title>🏌️ Tee Time Finder</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <!-- External CSS -->
-  <link rel="stylesheet" href="styles.css?v=2" />
+  <link rel="stylesheet" href="styles.css?v=3" />
   <!-- Luxon for reliable Europe/Stockholm timezone handling -->
   <script src="https://cdn.jsdelivr.net/npm/luxon@3/build/global/luxon.min.js" defer></script>
   <!-- Simple inline favicon to avoid 404s -->
@@ -34,10 +34,10 @@
 
           <div class="form-group">
             <div class="form-row">
-              <label>After</label>
-              <input id="after" type="time" />
-              <label>Before</label>
-              <input id="before" type="time" />
+              <label for="after">After</label>
+              <select id="after"></select>
+              <label for="before">Before</label>
+              <select id="before"></select>
             </div>
             <div class="muted time-filter-note">Time filter (optional)</div>
           </div>
@@ -89,7 +89,7 @@
       "stannum": "c4d2c938-43d7-4b07-9ddc-c679c769d28c",
       "waxholm": "410fdd67-a108-4b3f-8058-1ff66fc061c2",
     };
-    const API_ORIGIN = "https://middleware.sweetspot.io";
+    const API_ORIGINS = ["https://platform.sweetspot.io", "https://middleware.sweetspot.io"];
     const { DateTime } = (window.luxon || {});
     
     if (!DateTime) {
@@ -173,9 +173,6 @@
       const cat = it.category || {};
       if (typeof cat === "object") {
         if (catStr(cat.name) === "banunderhåll" || catStr(cat.custom_name) === "banunderhåll" || catStr(it.name) === "banunderhåll") return false;
-        if (catStr(cat.display) === "full") return false;
-        if (["fullbokad", "fullbokat", "fullbokade"].includes(catStr(cat.custom_name))) return false;
-        if (cat.tee_time_bookable === false) return false;
       } else {
         if (catStr(it.name || it.category) === "banunderhåll") return false;
       }
@@ -192,13 +189,31 @@
         "order[from]": "asc",
         "page": "1",
       });
-      const url = `${API_ORIGIN}/api/tee-times?${params.toString()}`;
-      const r = await fetch(url, { method: "GET" });
-      if (!r.ok) throw new Error(`HTTP ${r.status} ${r.statusText}`);
-      const data = await r.json();
+      let data = null;
+      let lastErr = null;
+      for (const origin of API_ORIGINS) {
+        try {
+          const url = `${origin}/api/tee-times?${params.toString()}`;
+          const r = await fetch(url, { method: "GET" });
+          if (!r.ok) throw new Error(`${origin}: HTTP ${r.status} ${r.statusText}`);
+          const contentType = (r.headers.get("content-type") || "").toLowerCase();
+          if (!contentType.includes("application/json")) {
+            const preview = (await r.text()).slice(0, 140).replace(/\s+/g, " ").trim();
+            throw new Error(`${origin}: Unexpected response type ${contentType || "unknown"}. Preview: ${preview}`);
+          }
+          data = await r.json();
+          break;
+        } catch (err) {
+          lastErr = err;
+        }
+      }
+      if (!data) throw (lastErr || new Error("No API origins available."));
       const items = Array.isArray(data) ? data : (data && data.data) || [];
 
       const out = [];
+      let totalTimes = 0;
+      let belowPlayers = 0;
+      let fullTimes = 0;
       for (const it of items) {
         if (!shouldKeepItem(it)) continue;
         const startIso = it.from || it.start;
@@ -214,10 +229,18 @@
           const n = Number(avail);
           avail = Number.isFinite(n) ? n : 0;
         }
-        if (avail >= players) out.push({ hhmm, avail });
+        let max = it.max_slots;
+        if (typeof max !== "number") {
+          const n = Number(max);
+          max = Number.isFinite(n) ? n : 4;
+        }
+        totalTimes += 1;
+        if (avail >= players) out.push({ hhmm, avail, max });
+        else if (avail > 0) belowPlayers += 1;
+        else fullTimes += 1;
       }
       out.sort((a, b) => (tmin(a.hhmm) ?? 1e9) - (tmin(b.hhmm) ?? 1e9));
-      return { courseName, dateStr, out };
+      return { courseName, dateStr, out, players, totalTimes, belowPlayers, fullTimes };
     }
 
     function setOutput(content, isLoading = false) {
@@ -274,10 +297,14 @@
           if (!result.out || result.out.length === 0) {
             const noResults = document.createElement('div');
             noResults.className = 'no-results';
-            noResults.textContent = 'No available tee times';
+            if ((result.totalTimes || 0) === 0) {
+              noResults.textContent = 'No tee times published in this time window';
+            } else {
+              noResults.textContent = `No tee times for ${result.players} players. ${result.belowPlayers} have fewer slots, ${result.fullTimes} are full.`;
+            }
             courseDiv.appendChild(noResults);
           } else {
-            result.out.forEach(({ hhmm, avail }) => {
+            result.out.forEach(({ hhmm, avail, max }) => {
               const timeSlot = document.createElement('div');
               timeSlot.className = 'time-slot';
               
@@ -287,7 +314,7 @@
               
               const slotsSpan = document.createElement('span');
               slotsSpan.className = 'slots';
-              slotsSpan.textContent = `${avail} slots`;
+              slotsSpan.textContent = `${avail}/${max} slots`;
               
               timeSlot.appendChild(timeSpan);
               timeSlot.appendChild(slotsSpan);
@@ -312,8 +339,33 @@
     const beforeInput = document.getElementById("before");
     const runBtn = document.getElementById("run");
 
+    function buildTimeSelect(selectEl, defaultValue) {
+      selectEl.innerHTML = "";
+
+      const anyOpt = document.createElement("option");
+      anyOpt.value = "";
+      anyOpt.textContent = "Any";
+      selectEl.appendChild(anyOpt);
+
+      for (let h = 0; h < 24; h += 1) {
+        for (let m = 0; m < 60; m += 10) {
+          const hh = String(h).padStart(2, "0");
+          const mm = String(m).padStart(2, "0");
+          const v = `${hh}:${mm}`;
+          const opt = document.createElement("option");
+          opt.value = v;
+          opt.textContent = v;
+          selectEl.appendChild(opt);
+        }
+      }
+
+      if (defaultValue) selectEl.value = defaultValue;
+    }
+
     // Default date = today, and add to selectedDates
     dateInput.value = todayISO();
+    buildTimeSelect(afterInput, "07:00");
+    buildTimeSelect(beforeInput, "20:00");
     selectedDates.add(dateInput.value);
     renderDates();
     renderCourses();
@@ -383,327 +435,9 @@
           console.warn("Some requests failed:", errors);
         }
 
-        setOutput(successfulResults);
-      } catch (e) {
-        setOutput(`❌ Error: ${e.message || e}`);
-      }
-    };
-    });
-  </script>
-
-</body>
-</html>
-
-  <script>
-    // Defer all JS until DOM is parsed and Luxon (defer) has executed
-    window.addEventListener('DOMContentLoaded', () => {
-    // --- Constants and data (from your teetime.py) ---
-    const COURSES = {
-      "brållsta 18 hål": "292e2543-f661-403f-b1d6-a5086d251061",
-      "bodaholm": "ac165789-77f6-43c5-ae15-907ae3c4b814",
-      "gripsholm": "9cec9190-3cf1-4177-90a6-c8b1c874a552",
-      "international": "2ee26a65-028d-46e0-809d-635bf3c06a5a",
-      "kings course": "c006a958-4c27-4a58-9442-627a7aebc843",
-      "queens": "583bf680-75c3-4281-b78d-be5ebbcdac1f",
-      "kyssinge": "f10b066a-205b-4690-af58-83c43cff55c1",
-      "lindö dal": "e02768fc-caff-49b6-a86d-237179cf5ca8",
-      "lindö park": "15a56a35-ec3f-4067-935f-45b38530c52e",
-      "lindö äng": "6ec41746-b529-46bc-ac81-514095105d54",
-      "riksten": "19ceb886-66ed-4489-9ddd-6e86642a22be",
-      "stannum": "c4d2c938-43d7-4b07-9ddc-c679c769d28c",
-      "waxholm": "410fdd67-a108-4b3f-8058-1ff66fc061c2",
-    };
-    const API_ORIGIN = "https://middleware.sweetspot.io";
-    const { DateTime } = (window.luxon || {});
-    if (!DateTime) {
-      const container = document.getElementById('output-container');
-      if (container) {
-        container.innerHTML = '<div class="section"><div class="no-results">❌ Error: Failed to load Luxon. Check your internet connection or CDN access.</div></div>';
-      }
-      console.error('Luxon failed to load.');
-      return; // stop init so we don\'t crash
-    }
-
-    // --- State ---
-    const selectedCourses = new Set(Object.keys(COURSES)); // all selected by default
-    const selectedDates = new Set(); // yyyy-mm-dd
-
-    // --- Helpers ---
-    function todayISO() {
-      const d = new Date();
-      const yyyy = d.getFullYear();
-      const mm = String(d.getMonth() + 1).padStart(2, "0");
-      const dd = String(d.getDate()).padStart(2, "0");
-      return `${yyyy}-${mm}-${dd}`;
-    }
-
-    function renderDates() {
-      const list = document.getElementById("dates-list");
-      list.innerHTML = "";
-      Array.from(selectedDates).sort().forEach(ds => {
-        const chip = document.createElement("div");
-        chip.textContent = ds;
-        chip.className = "chip";
-        chip.title = "Remove";
-        chip.onclick = () => { selectedDates.delete(ds); renderDates(); };
-        list.appendChild(chip);
-      });
-    }
-
-    function renderCourses() {
-      const wrap = document.getElementById("courses");
-      wrap.innerHTML = "";
-      Object.keys(COURSES).forEach(name => {
-        const btn = document.createElement("div");
-        btn.className = "course" + (selectedCourses.has(name) ? " selected" : "");
-        btn.textContent = name;
-        btn.onclick = () => {
-          if (selectedCourses.has(name)) selectedCourses.delete(name);
-          else selectedCourses.add(name);
-          btn.classList.toggle("selected");
-        };
-        wrap.appendChild(btn);
-      });
-    }
-
-    function tmin(hhmm) {
-      if (!hhmm) return null;
-      const [h, m] = hhmm.split(":");
-      const ih = Number(h), im = Number(m);
-      if (Number.isNaN(ih) || Number.isNaN(im)) return null;
-      return ih * 60 + im;
-    }
-
-    function hhmmInStockholm(startIso) {
-      // Convert ISO (UTC or with offset) to Europe/Stockholm HH:mm
-      return DateTime.fromISO(startIso).setZone("Europe/Stockholm").toFormat("HH:mm");
-    }
-
-    function apiWindowForDate(dateStr) {
-      // Build full Stockholm local day window -> UTC ISO strings
-      const start = DateTime.fromISO(dateStr, { zone: "Europe/Stockholm" }).startOf("day");
-      const end = start.endOf("day");
-      const afterISO = start.toUTC().toISO({ suppressMilliseconds: false });   // with .SSSZ
-      const beforeISO = end.toUTC().toISO({ suppressMilliseconds: false });    // with .SSSZ
-      return { afterISO, beforeISO };
-    }
-
-    function catStr(v) {
-      return (typeof v === "string" ? v : "").trim().toLowerCase();
-    }
-
-    function shouldKeepItem(it) {
-      const cat = it.category || {};
-      if (typeof cat === "object") {
-        if (catStr(cat.name) === "banunderhåll" || catStr(cat.custom_name) === "banunderhåll" || catStr(it.name) === "banunderhåll") return false;
-        if (catStr(cat.display) === "full") return false;
-        if (["fullbokad", "fullbokat", "fullbokade"].includes(catStr(cat.custom_name))) return false;
-        if (cat.tee_time_bookable === false) return false;
-      } else {
-        if (catStr(it.name || it.category) === "banunderhåll") return false;
-      }
-      return true;
-    }
-
-    async function fetchCourseDate(courseName, courseUuid, dateStr, players, afterMin, beforeMin) {
-      const { afterISO, beforeISO } = apiWindowForDate(dateStr);
-      const params = new URLSearchParams({
-        "course.uuid": courseUuid,
-        "from[after]": afterISO,
-        "from[before]": beforeISO,
-        "limit": "9999",
-        "order[from]": "asc",
-        "page": "1",
-      });
-      const url = `${API_ORIGIN}/api/tee-times?${params.toString()}`;
-      const r = await fetch(url, { method: "GET" });
-      if (!r.ok) throw new Error(`HTTP ${r.status} ${r.statusText}`);
-      const data = await r.json();
-      const items = Array.isArray(data) ? data : (data && data.data) || [];
-
-      const out = [];
-      for (const it of items) {
-        if (!shouldKeepItem(it)) continue;
-        const startIso = it.from || it.start;
-        if (!startIso) continue;
-        const hhmm = hhmmInStockholm(startIso);
-        const t = tmin(hhmm);
-        if (t == null) continue;
-        if (afterMin != null && t < afterMin) continue;
-        if (beforeMin != null && t > beforeMin) continue;
-
-        let avail = it.available_slots;
-        if (typeof avail !== "number") {
-          const n = Number(avail);
-          avail = Number.isFinite(n) ? n : 0;
-        }
-        if (avail >= players) out.push({ hhmm, avail });
-      }
-      out.sort((a, b) => (tmin(a.hhmm) ?? 1e9) - (tmin(b.hhmm) ?? 1e9));
-      return { courseName, dateStr, out };
-    }
-
-    function setOutput(content, isLoading = false) {
-      const container = document.getElementById("output-container");
-      
-      if (isLoading) {
-        container.innerHTML = '<div class="loading">🔍 Fetching tee times...</div>';
-        return;
-      }
-      
-      if (typeof content === 'string') {
-        // Handle error messages
-        container.innerHTML = `<div class="section"><div class="no-results">${content}</div></div>`;
-        return;
-      }
-      
-      // Handle structured results
-      container.innerHTML = '';
-      
-      if (!content || content.length === 0) {
-        container.innerHTML = '<div class="section"><div class="no-results">No results found. Try adjusting your criteria.</div></div>';
-        return;
-      }
-      
-      // Group results by date first
-      const resultsByDate = {};
-      content.forEach(result => {
-        if (!resultsByDate[result.dateStr]) {
-          resultsByDate[result.dateStr] = [];
-        }
-        resultsByDate[result.dateStr].push(result);
-      });
-      
-      // Create sections for each date
-      Object.keys(resultsByDate).sort().forEach(dateStr => {
-        const dateSection = document.createElement('div');
-        dateSection.className = 'section';
-        
-        const dateHeader = document.createElement('h3');
-        dateHeader.textContent = `📅 ${dateStr}`;
-        dateSection.appendChild(dateHeader);
-        
-        const resultsGrid = document.createElement('div');
-        resultsGrid.className = 'results-grid';
-        
-        resultsByDate[dateStr].forEach(result => {
-          const courseDiv = document.createElement('div');
-          courseDiv.className = 'course-result';
-          
-          const courseTitle = document.createElement('h4');
-          courseTitle.textContent = result.courseName.replace(/\b\w/g, c => c.toUpperCase());
-          courseDiv.appendChild(courseTitle);
-          
-          if (!result.out || result.out.length === 0) {
-            const noResults = document.createElement('div');
-            noResults.className = 'no-results';
-            noResults.textContent = 'No available tee times';
-            courseDiv.appendChild(noResults);
-          } else {
-            result.out.forEach(({ hhmm, avail }) => {
-              const timeSlot = document.createElement('div');
-              timeSlot.className = 'time-slot';
-              
-              const timeSpan = document.createElement('span');
-              timeSpan.className = 'time';
-              timeSpan.textContent = hhmm;
-              
-              const slotsSpan = document.createElement('span');
-              slotsSpan.className = 'slots';
-              slotsSpan.textContent = `${avail} slots`;
-              
-              timeSlot.appendChild(timeSpan);
-              timeSlot.appendChild(slotsSpan);
-              courseDiv.appendChild(timeSlot);
-            });
-          }
-          
-          resultsGrid.appendChild(courseDiv);
-        });
-        
-        dateSection.appendChild(resultsGrid);
-        container.appendChild(dateSection);
-      });
-    }
-
-  // --- Init UI ---
-    const dateInput = document.getElementById("date");
-    const addDateBtn = document.getElementById("add-date");
-    const clearDatesBtn = document.getElementById("clear-dates");
-    const playersSel = document.getElementById("players");
-    const afterInput = document.getElementById("after");
-    const beforeInput = document.getElementById("before");
-    const runBtn = document.getElementById("run");
-
-    // Default date = today, and add to selectedDates
-    dateInput.value = todayISO();
-    selectedDates.add(dateInput.value);
-    renderDates();
-    renderCourses();
-
-    addDateBtn.onclick = () => {
-      if (dateInput.value) {
-        selectedDates.add(dateInput.value);
-        renderDates();
-      }
-    };
-    clearDatesBtn.onclick = () => {
-      selectedDates.clear();
-      renderDates();
-    };
-
-    document.getElementById("select-all").onclick = () => {
-      Object.keys(COURSES).forEach(k => selectedCourses.add(k));
-      renderCourses();
-    };
-    document.getElementById("clear-all").onclick = () => {
-      selectedCourses.clear();
-      renderCourses();
-    };
-
-    runBtn.onclick = async () => {
-      try {
-        const players = Number(playersSel.value) || 1;
-        const afterMin = tmin(afterInput.value || null);
-        const beforeMin = tmin(beforeInput.value || null);
-
-        const dates = Array.from(selectedDates);
-        if (dates.length === 0 && dateInput.value) dates.push(dateInput.value);
-        if (dates.length === 0) {
-          setOutput("❌ Please select at least one date.");
+        if (successfulResults.length === 0 && errors.length > 0) {
+          setOutput(`❌ API error: ${errors[0]}`);
           return;
-        }
-
-        const courses = Array.from(selectedCourses).map(name => [name, COURSES[name]]);
-        if (courses.length === 0) {
-          setOutput("❌ Please select at least one course.");
-          return;
-        }
-
-        setOutput(null, true); // Show loading
-
-        const tasks = [];
-        for (const [name, uuid] of courses) {
-          for (const d of dates) {
-            tasks.push(fetchCourseDate(name, uuid, d, players, afterMin, beforeMin));
-          }
-        }
-        const results = await Promise.allSettled(tasks);
-
-        // Process results for grid display
-        const successfulResults = [];
-        const errors = [];
-        
-        for (const res of results) {
-          if (res.status === "fulfilled") {
-            successfulResults.push(res.value);
-          } else {
-            errors.push(res.reason?.message || res.reason);
-          }
-        }
-
-        if (errors.length > 0) {
-          console.warn("Some requests failed:", errors);
         }
 
         setOutput(successfulResults);
@@ -713,5 +447,6 @@
     };
     });
   </script>
+
 </body>
 </html>

@@ -1,6 +1,7 @@
 import requests
 import calendar
 import argparse
+import time
 from datetime import datetime, timedelta, timezone
 try:
     from zoneinfo import ZoneInfo
@@ -44,8 +45,16 @@ def resolve_course_uuid(course: str) -> str:
     raise KeyError(f"Unknown course: {course}. Known: {', '.join(COURSE_UUIDS.keys())}")
 
 class SweetspotClient:
-    def __init__(self):
-        self.api_origin = "https://middleware.sweetspot.io"
+    def __init__(self, api_origin: str | None = None, retries: int = 2, timeout: int = 20):
+        self.api_origins = [
+            api_origin.strip() if api_origin else "https://platform.sweetspot.io",
+            "https://platform.sweetspot.io",
+            "https://middleware.sweetspot.io",
+        ]
+        # Deduplicate while preserving order
+        self.api_origins = list(dict.fromkeys(self.api_origins))
+        self.retries = max(0, int(retries))
+        self.timeout = max(1, int(timeout))
         self.session = requests.Session()
         self.session.headers.update({
             "Accept": "application/json, text/plain, */*",
@@ -93,12 +102,28 @@ class SweetspotClient:
             "order[from]": "asc",
             "page": "1",
         }
-        url = f"{self.api_origin}/api/tee-times"
-        r = self.session.get(url, params=params, timeout=20)
-        r.raise_for_status()
-        data = r.json()
-        items = data.get("data") if isinstance(data, dict) else data
-        return items or []
+        last_error = None
+        for origin in self.api_origins:
+            url = f"{origin}/api/tee-times"
+            for attempt in range(self.retries + 1):
+                try:
+                    r = self.session.get(url, params=params, timeout=self.timeout)
+                    r.raise_for_status()
+                    ctype = (r.headers.get("Content-Type") or "").lower()
+                    if "application/json" not in ctype:
+                        preview = r.text[:160].replace("\n", " ").replace("\r", " ").strip()
+                        raise ValueError(f"Unexpected content-type '{ctype or 'unknown'}' from {origin}. Preview: {preview}")
+                    data = r.json()
+                    items = data.get("data") if isinstance(data, dict) else data
+                    return items or []
+                except Exception as e:
+                    last_error = e
+                    # Retry only on this origin first
+                    if attempt < self.retries:
+                        time.sleep(0.5 * (attempt + 1))
+                        continue
+                    break
+        raise RuntimeError(f"Failed to fetch tee times from API origins {self.api_origins}: {last_error}")
 
 def _to_local_hhmm(start_iso: str) -> str:
     dt_utc = datetime.fromisoformat(start_iso.replace("Z", "+00:00"))
@@ -129,11 +154,14 @@ if __name__ == "__main__":
     parser.add_argument("-c", "--course", help="Optional single course name or UUID; default is all courses")
     parser.add_argument("-a", "--after", help="Earliest time HH:MM to include (optional)")
     parser.add_argument("-b", "--before", help="Latest time HH:MM to include (optional)")
+    parser.add_argument("--api-origin", default="https://platform.sweetspot.io", help="Primary API base origin (default: https://platform.sweetspot.io)")
+    parser.add_argument("--retries", type=int, default=2, help="Retries per request before failing (default: 2)")
+    parser.add_argument("--timeout", type=int, default=20, help="HTTP timeout seconds (default: 20)")
     args = parser.parse_args()
 
     today = datetime.now().strftime("%Y-%m-%d")
     date_list = [d.strip() for d in (args.dates or today).split(",") if d.strip()]
-    client = SweetspotClient()
+    client = SweetspotClient(api_origin=args.api_origin, retries=args.retries, timeout=args.timeout)
 
     after_min = _tmin(args.after)
     before_min = _tmin(args.before)
@@ -178,8 +206,14 @@ if __name__ == "__main__":
                     avail = int(avail)
                 except Exception:
                     avail = 0
+            max_slots = it.get("max_slots")
+            if not isinstance(max_slots, int):
+                try:
+                    max_slots = int(max_slots)
+                except Exception:
+                    max_slots = 4
             if avail >= args.players:
-                out.append((hhmm, avail))
+                out.append((hhmm, avail, max_slots))
         out.sort(key=lambda x: _tmin(x[0]) or 1_000_000)
         # Print course title (Title Case)
         title = course_label.title()
@@ -187,8 +221,8 @@ if __name__ == "__main__":
         if not out:
             print(f"no match found for {title}")
         else:
-            for hhmm, avail in out:
-                print(f"  {hhmm}  slots:{avail}")
+            for hhmm, avail, max_slots in out:
+                print(f"  {hhmm}  slots:{avail}/{max_slots}")
 
     try:
         if args.course:
